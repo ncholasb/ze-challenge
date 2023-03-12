@@ -1,5 +1,6 @@
 from fastapi import FastAPI
-from app.database import connect_to_mongo, close_mongo_connection
+
+from app.database import close_mongo_connection, connect_to_mongo
 from app.routes.partners import router as partner_router
 
 app = FastAPI()

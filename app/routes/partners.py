@@ -1,10 +1,12 @@
-from shapely.geometry import Polygon, MultiPolygon, Point
-from typing import List, Tuple
-from fastapi import APIRouter, HTTPException
+import base64
+import io
+from typing import List
+import folium
 from bson import ObjectId
+from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from app.database import partners_collection
-from app.models import Partner, PartnerCoverage
-
+from app.models import Partner
 
 router = APIRouter()
 
@@ -85,42 +87,17 @@ async def delete_partner(partner_id: int):
     raise HTTPException(status_code=404, detail="Partner not found")
 
 
-def is_point_in_coverage_area(point: Tuple[float, float], coverage: dict) -> bool:
-    """
-    Check if a point is inside the coverage area of a partner.
+@router.get("/partner_coverage/")
+async def get_partner_coverage(latitude: float = Query(...), longitude: float = Query(...)):
+    m = folium.Map(location=[latitude, longitude], zoom_start=16)
 
-    :param point: A tuple representing the coordinates of the point.
-    :param coverage: A dictionary representing the coverage area of the partner.
-    :return: A boolean indicating whether the point is inside the coverage area.
-    """
-    # Parse coverage area coordinates
-    if coverage["type"] == "MultiPolygon":
-        coordinates = [[[(float(x), float(y)) for x, y in polygon] for polygon in polygons] for polygons in coverage["coordinates"]]
-        mp = MultiPolygon(coordinates)
-    else:
-        coordinates = [[(float(x), float(y)) for x, y in polygon] for polygon in coverage["coordinates"][0]]
-        poly = Polygon(coordinates)
+    folium.Marker([latitude, longitude]).add_to(m)
+    img_data = io.BytesIO()
+    m.save(img_data, close_file=False)
+    img_data.seek(0)
 
-    point = Point(point)
-    if coverage["type"] == "MultiPolygon":
-        return mp.contains(point)
-    else:
-        return poly.contains(point)
+    # Converta a imagem em bytes para uma string base64
+    img_base64 = base64.b64encode(img_data.getvalue()).decode()
 
-
-@router.get("/{partner_id}/coverage", response_model=PartnerCoverage)
-async def get_partner_coverage(id: int):
-    partner = Partner.get_partner_by_id(id)
-    coverage = partner.coverage_area
-
-    if coverage["type"] == "MultiPolygon":
-        coordinates = [
-            [[(float(x), float(y)) for x, y in polygon] for polygon in polygons]
-            for polygons in coverage["coordinates"]
-        ]
-        mp = MultiPolygon(coordinates)
-        return PartnerCoverage(type="MultiPolygon", coordinates=mp.exterior.coords[:-1])
-    else:
-        coordinates = [[(float(x), float(y)) for x, y in polygon] for polygon in coverage["coordinates"][0]]
-        poly = Polygon(coordinates)
-        return PartnerCoverage(type="Polygon", coordinates=poly.exterior.coords[:-1])
+    # Retorne a imagem como uma resposta de streaming
+    return StreamingResponse(io.BytesIO(base64.b64decode(img_base64)), media_type="image/png")

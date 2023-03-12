@@ -1,8 +1,8 @@
-import os
 import json
-from app.database import db
-from app.models import Partner, MultiPolygon
-from app.database import partners_collection
+import os
+
+from app.database import db, partners_collection
+from app.models import Partner
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 

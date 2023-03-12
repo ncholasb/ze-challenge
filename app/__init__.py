@@ -1,8 +1,9 @@
 import asyncio
 
 from fastapi import FastAPI
-from app.routes import partners
+
 from app.database import partners_collection
+from app.routes import partners
 from app.seed_data import seed_partners
 
 app = FastAPI()
